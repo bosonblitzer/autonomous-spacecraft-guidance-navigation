@@ -1,0 +1,75 @@
+import numpy as np
+import pytest
+
+from spacecraft_sim.analysis import (
+    calculate_state_error,
+    calculate_position_error,
+    calculate_velocity_error,
+    calculate_rmse,
+)
+def test_calculate_state_error():
+    true_history = np.array([
+        [10.0, 20.0, 1.0, 2.0],
+        [11.0, 22.0, 1.5, 2.5],
+    ])
+
+    estimated_history = np.array([
+        [12.0, 19.0, 1.5, 1.0],
+        [10.0, 24.0, 2.0, 3.0],
+    ])
+
+    error = calculate_state_error(
+        true_history,
+        estimated_history,
+    )
+
+    expected = np.array([
+        [2.0, -1.0, 0.5, -1.0],
+        [-1.0, 2.0, 0.5, 0.5],
+    ])
+
+    assert np.allclose(error, expected)
+def test_calculate_position_error():
+    state_error = np.array([
+        [3.0, 4.0, 1.0, 2.0],
+        [0.0, 0.0, 2.0, 3.0],
+    ])
+
+    position_error = calculate_position_error(state_error)
+
+    expected = np.array([5.0, 0.0])
+
+    assert np.allclose(position_error, expected)
+def test_calculate_velocity_error():
+    state_error = np.array([
+        [1.0, 2.0, 3.0, 4.0],
+        [0.0, 0.0, 5.0, 12.0],
+    ])
+
+    velocity_error = calculate_velocity_error(state_error)
+
+    expected = np.array([5.0, 13.0])
+
+    assert np.allclose(velocity_error, expected)
+def test_calculate_rmse():
+    errors = np.array([3.0, 4.0])
+
+    rmse = calculate_rmse(errors)
+
+    expected = np.sqrt((3.0**2 + 4.0**2) / 2)
+
+    assert np.isclose(rmse, expected)
+def test_state_error_requires_matching_shapes():
+    true_history = np.zeros((10, 4))
+    estimated_history = np.zeros((5, 4))
+
+    with pytest.raises(ValueError):
+        calculate_state_error(
+            true_history,
+            estimated_history,
+        )
+def test_position_error_requires_correct_shape():
+    state_error = np.zeros((10, 3))
+
+    with pytest.raises(ValueError):
+        calculate_position_error(state_error)

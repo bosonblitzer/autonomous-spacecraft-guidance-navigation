@@ -5,6 +5,7 @@ from spacecraft_sim.dynamics import (
     EARTH_MU,
     gravitational_acceleration,
     state_derivative,
+    dynamics_jacobian,
 )
 
 
@@ -50,3 +51,42 @@ def test_state_derivative():
 def test_zero_position_raises_error():
     with pytest.raises(ValueError):
         gravitational_acceleration(np.array([0.0, 0.0]))
+
+
+def test_dynamics_jacobian_shape():
+    state = np.array([
+        7_000_000.0,
+        0.0,
+        0.0,
+        7_500.0,
+    ])
+
+    jacobian = dynamics_jacobian(state)
+
+    assert jacobian.shape == (4, 4)
+
+
+def test_dynamics_jacobian_velocity_terms():
+    state = np.array([
+        7_000_000.0,
+        0.0,
+        0.0,
+        7_500.0,
+    ])
+
+    jacobian = dynamics_jacobian(state)
+
+    assert np.isclose(jacobian[0, 2], 1.0)
+    assert np.isclose(jacobian[1, 3], 1.0)
+
+
+def test_dynamics_jacobian_zero_position_raises_error():
+    state = np.array([
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ])
+
+    with pytest.raises(ValueError):
+        dynamics_jacobian(state)
