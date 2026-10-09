@@ -89,3 +89,29 @@ def test_negative_noise_raises_error():
             position_noise_std=-1.0,
             velocity_noise_std=0.1,
         )
+def test_measurement_is_reproducible_with_same_rng_seed():
+    true_state = np.array([
+        7_071_000.0,
+        0.0,
+        0.0,
+        7_508.0,
+    ])
+
+    rng_1 = np.random.default_rng(42)
+    rng_2 = np.random.default_rng(42)
+
+    measurement_1 = simulate_measurement(
+        true_state,
+        position_noise_std=10.0,
+        velocity_noise_std=0.1,
+        rng=rng_1,
+    )
+
+    measurement_2 = simulate_measurement(
+        true_state,
+        position_noise_std=10.0,
+        velocity_noise_std=0.1,
+        rng=rng_2,
+    )
+
+    assert np.array_equal(measurement_1, measurement_2)
