@@ -8,15 +8,7 @@ from spacecraft_sim.propagation import rk4_step
 
 
 class ExtendedKalmanFilter:
-    """
-    Extended Kalman Filter for spacecraft state estimation.
-
-    State:
-        [x, y, vx, vy]
-
-    The nonlinear spacecraft dynamics are propagated using
-    fourth-order Runge-Kutta integration.
-    """
+    """Extended Kalman Filter for spacecraft state estimation."""
 
     def __init__(
         self,
@@ -27,9 +19,7 @@ class ExtendedKalmanFilter:
         mu: float = EARTH_MU,
     ):
         if initial_state.shape != (4,):
-            raise ValueError(
-                "initial_state must have shape (4,)."
-            )
+            raise ValueError("initial_state must have shape (4,).")
 
         if initial_covariance.shape != (4, 4):
             raise ValueError(
@@ -37,9 +27,7 @@ class ExtendedKalmanFilter:
             )
 
         if process_noise.shape != (4, 4):
-            raise ValueError(
-                "process_noise must have shape (4, 4)."
-            )
+            raise ValueError("process_noise must have shape (4, 4).")
 
         if measurement_noise.shape != (4, 4):
             raise ValueError(
@@ -52,34 +40,25 @@ class ExtendedKalmanFilter:
         self.measurement_noise = measurement_noise.astype(float).copy()
         self.mu = mu
 
-    def predict(self, dt: float) -> np.ndarray:
-        """
-        Propagate the state and covariance forward by dt.
-        """
-
+    def predict(
+        self,
+        dt: float,
+        control_acceleration: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Propagate state and covariance forward by dt."""
         if dt <= 0:
             raise ValueError("dt must be positive.")
 
-        # Propagate nonlinear state using RK4.
         self.state = rk4_step(
             self.state,
             dt,
             self.mu,
+            control_acceleration=control_acceleration,
         )
 
-        # Linearise the dynamics about the predicted state.
-        jacobian = dynamics_jacobian(
-            self.state,
-            self.mu,
-        )
+        jacobian = dynamics_jacobian(self.state, self.mu)
+        state_transition = np.eye(4) + jacobian * dt
 
-        # First-order state-transition approximation.
-        state_transition = (
-            np.eye(4)
-            + jacobian * dt
-        )
-
-        # Propagate covariance.
         self.covariance = (
             state_transition
             @ self.covariance
@@ -90,26 +69,14 @@ class ExtendedKalmanFilter:
         return self.state
 
     def update(self, measurement: np.ndarray) -> np.ndarray:
-        """
-        Correct the predicted state using a full-state measurement.
-        """
-
+        """Correct the predicted state using a full-state measurement."""
         if measurement.shape != (4,):
-            raise ValueError(
-                "measurement must have shape (4,)."
-            )
+            raise ValueError("measurement must have shape (4,).")
 
-        # Full-state measurement model:
-        # H = I
         measurement_matrix = np.eye(4)
 
-        # Innovation.
-        innovation = (
-            measurement
-            - measurement_matrix @ self.state
-        )
+        innovation = measurement - measurement_matrix @ self.state
 
-        # Innovation covariance.
         innovation_covariance = (
             measurement_matrix
             @ self.covariance
@@ -117,25 +84,25 @@ class ExtendedKalmanFilter:
             + self.measurement_noise
         )
 
-        # Kalman gain.
         kalman_gain = (
             self.covariance
             @ measurement_matrix.T
             @ np.linalg.inv(innovation_covariance)
         )
 
-        # State correction.
-        self.state = (
-            self.state
-            + kalman_gain @ innovation
-        )
+        self.state = self.state + kalman_gain @ innovation
 
-        # Covariance correction.
         identity = np.eye(4)
+        residual_matrix = identity - kalman_gain @ measurement_matrix
 
+        # Joseph-form covariance update improves numerical robustness.
         self.covariance = (
-            identity
-            - kalman_gain @ measurement_matrix
-        ) @ self.covariance
+            residual_matrix
+            @ self.covariance
+            @ residual_matrix.T
+            + kalman_gain
+            @ self.measurement_noise
+            @ kalman_gain.T
+        )
 
         return self.state

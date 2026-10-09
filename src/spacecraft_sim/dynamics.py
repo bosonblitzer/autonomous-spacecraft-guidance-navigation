@@ -41,33 +41,28 @@ def state_derivative(
     time: float,
     state: np.ndarray,
     mu: float = EARTH_MU,
+    control_acceleration: np.ndarray | None = None,
 ) -> np.ndarray:
-    """
-    Calculate the time derivative of the spacecraft state.
+    """Calculate spacecraft state derivatives, including control."""
+    if state.shape != (4,):
+        raise ValueError("state must have shape (4,).")
 
-    Parameters
-    ----------
-    time : float
-        Current simulation time in seconds.
+    derivative = np.zeros(4, dtype=float)
+    derivative[:2] = state[2:]
+    derivative[2:] = gravitational_acceleration(state[:2], mu)
 
-    state : np.ndarray
-        State vector [x, y, vx, vy].
+    if control_acceleration is not None:
+        control_acceleration = np.asarray(
+            control_acceleration, dtype=float
+        )
+        if control_acceleration.shape != (2,):
+            raise ValueError(
+                "control_acceleration must have shape (2,)."
+            )
+        derivative[2:] += control_acceleration
 
-    mu : float
-        Gravitational parameter in m^3/s^2.
+    return derivative
 
-    Returns
-    -------
-    np.ndarray
-        State derivative [vx, vy, ax, ay].
-    """
-
-    position = state[:2]
-    velocity = state[2:]
-
-    acceleration = gravitational_acceleration(position, mu)
-
-    return np.concatenate((velocity, acceleration))
 def dynamics_jacobian(
     state: np.ndarray,
     mu: float = EARTH_MU,
